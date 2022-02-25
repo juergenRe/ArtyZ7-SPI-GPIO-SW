@@ -1,0 +1,30 @@
+{
+  "projectExtensions": {
+    ".sprj": {
+      "type": "xml",
+      "baseDirName": ["."],
+      "baseEntry": "systemproject:SystemProject",
+      "entries": [
+        "@platform"
+      ]
+    },
+    ".prj": {
+      "type": "xml",
+      "baseDirName": ["."],
+      "baseEntry": "sdkproject:SdkProject",
+      "entries": [
+        "@platform",
+        "@location"
+      ]
+    },
+    ".spr": {
+      "type": "json",
+      "baseDirName": ["<platformDir>", ".."],
+      "entries": [
+        "platHandOff",
+        "platIntHandOff"
+      ]
+    }
+  },
+  "excludeFolders": ["scripts", "venv", "hw_handoff"]
+}
