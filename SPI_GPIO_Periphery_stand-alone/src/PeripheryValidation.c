@@ -36,7 +36,8 @@
 
 #include "GPIOControl.h"
 #include "SPIControl.h"
-#include "IICControl.h"
+//#include "IICControl.h"
+#include "OLED1306/OLEDComm.h"
 
 /************************** Constant Definitions *****************************/
 
@@ -60,6 +61,8 @@
 #define MSK_LED 0x0F
 
 #define SW_DEBOUNCE  2000
+
+#define OLED_ADDR 0x3C				//IIC address of OLED device
 
 #define OLED_RD	0x1
 #define OLED_WR 0x0
@@ -93,24 +96,13 @@ typedef struct {
 	u32 Active;
 } SPIState;
 
-typedef struct {
-	u32 ActCnt;
-	u32 LastCnt;
-	u16 ByteCount;
-	u32 Status;
-	u8 Active;
-	u8 IsSend;
-} IICState;
-
 int ScuGicExample(u16 DeviceId);
 int SetUpInterruptSystem(XScuGic *pGICInst, XScuGic_Config *pGicConfig, uint gicIntID);
-int SetUpGPIOInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger);
-int SetUpSPIInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger);
-int SetUpIICInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger);
+int SetUpGPIOInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(void*), uint intID, u8 priority, u8 trigger);
+int SetUpSPIInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(XSpiPs*), uint intID, u8 priority, u8 trigger);
 void GPIOInterruptHandler(void *CallbackRef);
 void SPIStatusHandler(const void *CallBackRef, u32 StatusEvent, u32 ByteCount);
-void IICStatusHandler(void *CallBackRef, u32 StatusEvent);
-void OLEDComm(u32 maxIICInt, IICState* iics);
+void OLEDComm(u32 maxIICInt);
 
 /************************** Variable Definitions *****************************/
 
@@ -123,10 +115,6 @@ static volatile ButtonState sw;		// actual button status
 
 static volatile u32 intSPICount;	// count called SPI interrupts
 static volatile SPIState spis;		// actual spi status
-
-//static volatile u32 intIICCount;	// count called IIC interrupts
-static IICState iics;				// actual iic status
-static IICState *piics;				// pointer to status word
 
 #define SPI_SCREEN 0				// number of slave to be addressed for screen display
 #define SPI_BUF_SIZE 128
@@ -166,11 +154,6 @@ int main ()
 
     intGPIOCount = 0;
     intSPICount = 0;
-    //intIICCount = 0;
-    iics.ActCnt = 0;
-    iics.LastCnt = 0;
-    iics.Active = 0;
-    piics = &iics;
 
 	// Setup an assert call back to get some info if we assert.
 	Xil_AssertSetCallback(AssertPrint);
@@ -183,14 +166,18 @@ int main ()
     printf("--- GPIO initialized. Status: %d ---\n\r", status);
     status = SpiInitMaster(SPI_0);
     printf("--- SPI initialized. Status: %d ---\n\r", status);
-    status = IicInit(IIC_0);
+//    status = IicInit(IIC_0);
+    OLEDCommIIC OledInterface;
+    OledInterface.initialize(IIC_0, OLED_ADDR);
     printf("--- IIC initialized. Status: %d ---\n\r", status);
 
     //set up interrupts
     SetUpInterruptSystem(&InterruptController, GicConfig, INTCTRL_DEVICE_ID);
     SetUpGPIOInterrupt(&InterruptController, GPIO_0, GPIOInterruptHandler, BTN_INTR_ID, 0x20, 0x03);
     SetUpSPIInterrupt(&InterruptController, SPI_0, XSpiPs_InterruptHandler, SPI0_INTR_ID, 0x20, 0x03);
-    SetUpIICInterrupt(&InterruptController, IIC_0, XIicPs_MasterInterruptHandler, IIC0_INTR_ID, 0x20, 0x03);
+//    SetUpIICInterrupt(&InterruptController, IIC_0, XIicPs_MasterInterruptHandler, IIC0_INTR_ID, 0x20, 0x03);
+    OledInterface.useInterrupts(&InterruptController, IIC0_INTR_ID, 0x20, 0x03);
+
     printf("---Interrupts ready---\n\r");
 
     u32 maxIICInt = sizeof(OLEDCmdList)/SZ_CMD;
@@ -235,7 +222,7 @@ int main ()
     		spis.Active = 1;
     		spis.ByteCount = 3;
     	}
-    	OLEDComm(maxIICInt, piics);
+    	OLEDComm(maxIICInt);
     }
 
    print("---Exiting main---\n\r");
@@ -276,7 +263,7 @@ int SetUpInterruptSystem(XScuGic *pGICInst, XScuGic_Config *pGicConfig, uint gic
 
 
 // setting up GPIO related interrupt system
-int SetUpGPIOInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger){
+int SetUpGPIOInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(void *), uint intID, u8 priority, u8 trigger){
 	XGpio *InstancePointer = getGPIOInstance(DeviceID);
 	if (NULL == InstancePointer) {
 		return XST_FAILURE;
@@ -344,7 +331,7 @@ void GPIOInterruptHandler(void *GPIOinstance)
 
 
 // setting up SPI related interrupt system
-int SetUpSPIInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger)
+int SetUpSPIInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(XSpiPs *), uint intID, u8 priority, u8 trigger)
 {
 	XSpiPs *InstancePointer = getSPIInstance(DeviceID);
 	if (NULL == InstancePointer) {
@@ -383,74 +370,39 @@ void SPIStatusHandler(const void *CallBackRef, u32 StatusEvent, u32 RemainingByt
 	}
 }
 
-// setting up IIC related interrupt system
-int SetUpIICInterrupt(XScuGic *pGICInst, u16 DeviceID, void *pHandler, uint intID, u8 priority, u8 trigger)
-{
-	XIicPs *InstancePointer = getIICInstance(DeviceID);
-	if (NULL == InstancePointer) {
-		return XST_FAILURE;
-	}
-
-	XIicPs_SetStatusHandler(InstancePointer, (void *)InstancePointer, IICStatusHandler);
-
-	// Connect a device driver handler that will be called when an interrupt for the device occurs,
-	// the device driver handler performs the specific interrupt processing for the device
-	int Status = XScuGic_Connect(pGICInst, intID, (Xil_ExceptionHandler)pHandler, (void *)InstancePointer);
-	if (Status != XST_SUCCESS) {
-		return XST_FAILURE;
-	}
-
-	XScuGic_SetPriorityTriggerType(pGICInst, intID, priority, trigger);
-	XScuGic_Enable(pGICInst, intID);
-	return XST_SUCCESS;
-}
-
-
-// Status callback on the IIC
-void IICStatusHandler(void *CallBackRef, u32 StatusEvent)
-{
-	iics.Status = StatusEvent;
-	iics.ActCnt++;
-}
-
-void OLEDComm(u32 maxIICInt, IICState* piics){
-	// handle IIC interrupts
-	if(piics->ActCnt != piics->LastCnt){
-		if(piics->Status == XIICPS_EVENT_COMPLETE_SEND){
-			printf("   IIC transfer finished: Bytes: %d; Cnt: %ld\n\r", piics->ByteCount, piics->ActCnt);
-		} else {
-			printf("   IIC transfer finished irregular. Status: %ld", piics->Status);
-		}
-		piics->Active = 0;
-		piics->ByteCount = 0;
-		piics->Status = 0;
-		piics->LastCnt = piics->ActCnt;
-	}
-	if((piics->Active == 0) && (piics->ActCnt <= maxIICInt)){
-		u8 idxCmd = piics->ActCnt * SZ_CMD;
-		u8 count = OLEDCmdList[idxCmd++];
-		if(count > 0){
-			printf("Start IIC Tx Cmd<%ld>\n\r", piics->ActCnt);
-			u8 cmdType = OLEDCmdList[idxCmd++];
-			u8 idxBuf =  OLEDCmdList[idxCmd++];
-			switch(cmdType){
-			case OLED_WR:
-				piics->Active = 1;
-				IicWriteMaster(IIC_0, OLEDWriteBuffer+idxBuf, count, 0x3C);
-				piics->ByteCount = count;
-				break;
-			case OLED_RD:
-				piics->Active = 0;
-				//IicReadMaster(IIC_0); no read allowed
-				piics->ByteCount = count;
-				break;
-			default:
-				printf("Error: unknown command type\n\r");
-			}
-		} else {
-			printf("All commands done\n\r");
-		}
-	} else {
-		printf("Irregular count\n\r");
-	}
+void OLEDComm(u32 maxIICInt){
+//	// handle IIC interrupts
+//	if(IicIsOperationDone()){
+//		if(IicIsSendDone()){
+//			printf("   IIC transfer finished: Cnt: %ld\n\r", IicGetIntCount());
+//		} else {
+//			printf("   IIC transfer finished irregular. Status: %ld", IicGetActStatus());
+//		}
+//		IicAckOperation();
+//	}
+//	u32 intCnt = IicGetIntCount();
+//	if(!IicIsOperationDone() && (intCnt <= maxIICInt)){
+//		u8 idxCmd = intCnt * SZ_CMD;
+//		u8 count = OLEDCmdList[idxCmd++];
+//		if(count > 0){
+//			printf("Start IIC Tx Cmd<%ld>\n\r", intCnt);
+//			u8 cmdType = OLEDCmdList[idxCmd++];
+//			u8 idxBuf =  OLEDCmdList[idxCmd++];
+//			switch(cmdType){
+//			case OLED_WR:
+//				IicWriteMaster(IIC_0, OLEDWriteBuffer+idxBuf, count, 0x3C);
+//				break;
+//			case OLED_RD:
+//				printf("IIC_RD not possible");
+//				//IicReadMaster(IIC_0); no read allowed
+//				break;
+//			default:
+//				printf("Error: unknown command type\n\r");
+//			}
+//		} else {
+//			printf("All commands done\n\r");
+//		}
+//	} else {
+//		printf("Irregular count\n\r");
+//	}
 }

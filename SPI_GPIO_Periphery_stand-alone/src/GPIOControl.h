@@ -13,6 +13,10 @@
 #include "xstatus.h"
 #include "xgpio.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PORT_CNT 1					// number of hardware ports
 
 #define SW_CHANNEL 1				// channel 1 read-only for switches and buttons
@@ -37,5 +41,8 @@ u32 GpioSwitchGetInt(void);			// get actual interrupts set
 
 //void GpioDriverHandler(void *CallBackRef);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SRC_GPIOCONTROL_H_ */
