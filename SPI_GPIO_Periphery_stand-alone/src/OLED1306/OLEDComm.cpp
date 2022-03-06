@@ -29,10 +29,13 @@ u32 OLEDCommIIC::sendData(u8 *data, u32 length){
 	Cnt = IicGetIntCount();
 	DvcStatus = IicGetActStatus();
 	IicAckOperation();
-	if(IicIsSendDone())
-		return XST_SUCCESS;
-	else
-		return DvcStatus;
+	return DvcStatus;
+}
+
+u32 OLEDCommIIC::sendCommand(u8 cmd){
+	u8 oledCmd[] = {OLED_WR_CMD, 0x00};
+	oledCmd[1] = cmd;
+	return sendData(oledCmd, 2);
 }
 
 void OLEDCommIIC::useInterrupts(XScuGic *pGICInst, uint intID, u8 priority, u8 trigger){

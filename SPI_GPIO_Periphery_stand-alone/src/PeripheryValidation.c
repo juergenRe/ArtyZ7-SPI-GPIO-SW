@@ -66,8 +66,6 @@
 
 #define OLED_RD	0x1
 #define OLED_WR 0x0
-#define OLED_WR_CMD 0x80			//Co=1, D/C#=0
-#define OLED_RD_STATUS 0x80			//Co=1, D/C#=0
 #define OLED_CMD_NOP 0xE3
 #define OLED_CMD_DISP_ON 0xAF
 #define OLED_CMD_DISP_OFF 0xAE
@@ -102,7 +100,7 @@ int SetUpGPIOInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(void*), ui
 int SetUpSPIInterrupt(XScuGic *pGICInst, u16 DeviceID, void pHandler(XSpiPs*), uint intID, u8 priority, u8 trigger);
 void GPIOInterruptHandler(void *CallbackRef);
 void SPIStatusHandler(const void *CallBackRef, u32 StatusEvent, u32 ByteCount);
-void OLEDComm(u32 maxIICInt);
+void OLEDTransfer(OLEDComm* OledInterface, u32 maxIICInt, u32 actIICCnt);
 
 /************************** Variable Definitions *****************************/
 
@@ -154,6 +152,7 @@ int main ()
 
     intGPIOCount = 0;
     intSPICount = 0;
+    u32 actIICCnt = 0;
 
 	// Setup an assert call back to get some info if we assert.
 	Xil_AssertSetCallback(AssertPrint);
@@ -222,7 +221,7 @@ int main ()
     		spis.Active = 1;
     		spis.ByteCount = 3;
     	}
-    	OLEDComm(maxIICInt);
+    	OLEDTransfer(&OledInterface, maxIICInt, actIICCnt++);
     }
 
    print("---Exiting main---\n\r");
@@ -370,39 +369,29 @@ void SPIStatusHandler(const void *CallBackRef, u32 StatusEvent, u32 RemainingByt
 	}
 }
 
-void OLEDComm(u32 maxIICInt){
-//	// handle IIC interrupts
-//	if(IicIsOperationDone()){
-//		if(IicIsSendDone()){
-//			printf("   IIC transfer finished: Cnt: %ld\n\r", IicGetIntCount());
-//		} else {
-//			printf("   IIC transfer finished irregular. Status: %ld", IicGetActStatus());
-//		}
-//		IicAckOperation();
-//	}
-//	u32 intCnt = IicGetIntCount();
-//	if(!IicIsOperationDone() && (intCnt <= maxIICInt)){
-//		u8 idxCmd = intCnt * SZ_CMD;
-//		u8 count = OLEDCmdList[idxCmd++];
-//		if(count > 0){
-//			printf("Start IIC Tx Cmd<%ld>\n\r", intCnt);
-//			u8 cmdType = OLEDCmdList[idxCmd++];
-//			u8 idxBuf =  OLEDCmdList[idxCmd++];
-//			switch(cmdType){
-//			case OLED_WR:
-//				IicWriteMaster(IIC_0, OLEDWriteBuffer+idxBuf, count, 0x3C);
-//				break;
-//			case OLED_RD:
-//				printf("IIC_RD not possible");
-//				//IicReadMaster(IIC_0); no read allowed
-//				break;
-//			default:
-//				printf("Error: unknown command type\n\r");
-//			}
-//		} else {
-//			printf("All commands done\n\r");
-//		}
-//	} else {
-//		printf("Irregular count\n\r");
-//	}
+void OLEDTransfer(OLEDComm* OledInterface, u32 maxIICInt, u32 actIICCnt){
+	if(actIICCnt <= maxIICInt){
+		u8 idxCmd = actIICCnt * SZ_CMD;
+		u8 count = OLEDCmdList[idxCmd++];
+		u32 res;
+		if(count > 0){
+			printf("Start IIC Tx Cmd<%ld>\n\r", actIICCnt);
+			u8 cmdType = OLEDCmdList[idxCmd++];
+			u8 idxBuf =  OLEDCmdList[idxCmd++];
+			switch(cmdType){
+			case OLED_WR:
+				res = OledInterface->sendData(OLEDWriteBuffer+idxBuf, count);
+				printf("   IIC transfer finished. Status: %ld\n\r", res);
+				break;
+			case OLED_RD:
+				printf("IIC_RD not possible");
+				//IicReadMaster(IIC_0); no read allowed
+				break;
+			default:
+				printf("Error: unknown command type\n\r");
+			}
+		} else {
+			printf("All commands done\n\r");
+		}
+	}
 }

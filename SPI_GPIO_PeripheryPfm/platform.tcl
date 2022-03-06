@@ -9,3 +9,4 @@ platform generate -domains
 platform generate
 platform active {SPI_GPIO_PeripheryPfm}
 platform generate
+platform generate -domains standalone_domain,zynq_fsbl 
