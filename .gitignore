@@ -22,6 +22,10 @@
 #Ignore lock files
 .lock
 
+# Ignore backup files
+.bak
+
+
 .bin
 .pdi
 .vitisWorkspace.json
