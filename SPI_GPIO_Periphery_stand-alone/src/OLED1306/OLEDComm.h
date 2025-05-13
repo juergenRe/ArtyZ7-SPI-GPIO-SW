@@ -7,10 +7,6 @@
 #define OLED_WR_CMD 0x80			//Co=1, D/C#=0
 #define OLED_RD_STATUS 0x80			//Co=1, D/C#=0
 
-#define NONE			ulong(0x0)
-#define IIC_INTERFACE 	0x01
-#define SPI_INTERFACE 	0x02
-
 // abstract interface definition
 class OLEDComm {
 	public:

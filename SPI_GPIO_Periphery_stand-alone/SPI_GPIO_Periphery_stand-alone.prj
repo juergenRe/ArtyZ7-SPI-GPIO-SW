@@ -1,11 +1,2 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<sdkproject:SdkProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sdkproject="http://www.xilinx.com/sdkproject" name="SPI_GPIO_Periphery_stand-alone" location="SPI_GPIO_Periphery_stand-alone" platform="SPI_GPIO_PeripheryPfm/export/SPI_GPIO_PeripheryPfm/SPI_GPIO_PeripheryPfm.xpfm" platformUID="xilinx:arty-z7-20::0.0(custom)" systemProject="SPI_GPIO_Periphery_stand-alone_system" sysConfig="SPI_GPIO_PeripheryPfm" runtime="C/C++" cpu="standalone_domain" cpuInstance="ps7_cortexa9_0" os="standalone" language="CPP" mssSignature="366bc2525a01d89227d6b341f2450e3a">
-  <configuration name="Debug" id="xilinx.gnu.armv7.exe.debug.813584616">
-    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
-    <lastBuildOptions xsi:type="sdkproject:SdkOptions"/>
-  </configuration>
-  <configuration name="Release" id="xilinx.gnu.armv7.exe.release.1426490584" dirty="true">
-    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
-  </configuration>
-  <template appTemplateName="empty_application"/>
-</sdkproject:SdkProject>
+<?xml version="1.0" encoding="utf-8"?>
+<sdkproject:SdkProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sdkproject="http://www.xilinx.com/sdkproject" name="SPI_GPIO_Periphery_stand-alone" location="SPI_GPIO_Periphery_stand-alone" platform="SPI_GPIO_PeripheryPfm/export/SPI_GPIO_PeripheryPfm/SPI_GPIO_PeripheryPfm.xpfm" platformUID="xilinx:arty-z7-20::0.0(custom)" systemProject="SPI_GPIO_Periphery_stand-alone_system" sysConfig="SPI_GPIO_PeripheryPfm" runtime="C/C++" cpu="standalone_domain" cpuInstance="ps7_cortexa9_0" os="standalone" language="CPP" mssSignature="366bc2525a01d89227d6b341f2450e3a"><configuration name="Debug" id="xilinx.gnu.armv7.exe.debug.813584616"><configBuildOptions xsi:type="sdkproject:SdkOptions"></configBuildOptions><lastBuildOptions xsi:type="sdkproject:SdkOptions"></lastBuildOptions></configuration><configuration name="Release" id="xilinx.gnu.armv7.exe.release.1426490584" dirty="true"><configBuildOptions xsi:type="sdkproject:SdkOptions"></configBuildOptions></configuration><template appTemplateName="empty_application"></template></sdkproject:SdkProject>
