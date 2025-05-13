@@ -101,7 +101,7 @@ u32 IicWriteMaster(u8 *pTx, u32 ByteCount, u16 SlaveAddress){
 // Status callback on the IIC (interrupt routine)
 void IICStatusHandler(XIicPs *IICInstance, u32 StatusEvent)
 {   
-    CkToggleBit(1);
+    CkSetBit(1);
 	iics.Status = StatusEvent;
 	iics.ActCnt++;
 	iics.Active -= 1;
@@ -109,7 +109,8 @@ void IICStatusHandler(XIicPs *IICInstance, u32 StatusEvent)
 		printf("Deactivation Error. Cnt: %d\n", iics.Active);
 	}
     u32 sr = XIicPs_ReadReg(IicCtrl.Config.BaseAddress, (u32)XIICPS_SR_OFFSET);
-    printf("IIC Interrupt. SR: %u Status: %x IntCnt: %u Active: %u\n", sr, StatusEvent, iics.ActCnt, iics.Active);
+    //printf("IIC Interrupt. SR: %u Status: %x IntCnt: %u Active: %u\n", sr, StatusEvent, iics.ActCnt, iics.Active);
+    CkClrBit(1);
 }
 
 

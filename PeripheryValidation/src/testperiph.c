@@ -79,16 +79,20 @@ unsigned char SPIReadBuffer[SPI_BUF_SIZE+1];
 // --- IIC related definitions
 #define IIC_BUF_SIZE 128
 #define LCD_ADDR 0x3C
-unsigned char IICWriteBuffer[IIC_BUF_SIZE] = {
-    0xAE, 0xAF, 0xA5, 0xA6, 0xA4, 0xD3, 0x00, 0x40,
-    0x8D, 0x14, 0xAD, 0x30, 0xA1, 0xC8, 0xDA, 0x12,
-    0x81, 0xFF, 0xD9, 0x22, 0xDB, 0x30, 0xAA, 0xA6, 0xAF
+u8 IICWriteBuffer[IIC_BUF_SIZE] = {
+    0x80, 0x8D, 0x80, 0x14, 0x80, 0xAF, 0x80, 0xA4, 0x80, 0x81, 0x80, 0x7F,
+    0x80, 0x40, 0x80, 0x20, 0x80, 0x00, 0x80, 0x21, 0x80, 0x00, 0x80, 0x7F,
+    0x80, 0x22, 0x80, 0x00, 0x80, 0x07,
+    0x40, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
+    0x80, 0xA7, 0x80, 0x22, 0x80, 0x02, 0x80, 0x07,
+    0x40, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F
     };
-unsigned char IICReadBuffer[IIC_BUF_SIZE+1];
-unsigned char *pChar;
-#define MAX_TX 7
+u8 IICReadBuffer[IIC_BUF_SIZE+1];
+u8 *pChar;
+u8 msgDef[] = {0, 30, 47, 55, 72, 0xff};
+u8 *actMsg = msgDef;
 
-
+void processInput(u8 sw);
 
 int main ()
 {
@@ -149,6 +153,7 @@ int main ()
     		printf("<%u> ---Catches interrupt. Count: %u switch: %u\n\r", runCnt, lastGPIOCount, sw.actIn);
             if (sw.lastIn != sw.actIn){
                 sw.lastIn = sw.actIn;
+                processInput(sw.actIn);
                 GpioLEDOutput(sw.actIn);
                 printf("<%u> GPIO Int Count: %d\n\r", runCnt, intGPIOCount);
                 CkClrBit(0);
@@ -180,19 +185,36 @@ int main ()
     	}
 
         // handle IIC transfer 
-    	if((IicIsActive() == 0) && (IicGetIntCount() < MAX_TX)) {
-        		printf("Start IIC Tx %u Val: %x\n\r", IicGetIntCount(), (u8)*pChar);
-                IicAckOperation();
-                CkToggleBit(0);
-                IicWriteMaster(pChar, 1, LCD_ADDR);                
-                pChar++;
-        }            
+    	// if((IicIsActive() == 0) && (IicGetIntCount() < MAX_TX)) {
+        //         IicAckOperation();
+        //         CkToggleBit(0);
+        //         IicWriteMaster(pChar, IIC_BC, LCD_ADDR);                
+        //         pChar++;
+        // 		//printf("IIC Tx %u Val: %x\n\r", IicGetIntCount(), (u8)*pChar);
+        // }            
     }
 
     print("--- Exiting main ---");
     return 0;
 }
 
+// sw0: reset messages
+// sw1: next message
+void processInput(u8 sw) {
+    if (sw & (u8)1)
+        actMsg = msgDef;
+    if (sw & (u8)2) {
+        if((IicIsActive() == 0)) {
+            IicAckOperation();
+            if (actMsg[1] != 0xff) {
+                pChar = IICWriteBuffer + actMsg[0];
+                u32 cnt = actMsg[1] - actMsg[0];
+                actMsg++;
+                IicWriteMaster(pChar, cnt, LCD_ADDR);
+            }
+        }
+    }
+}
 
 void GPIOInterruptHandler(XGpio *GPIOInstance)
 {
