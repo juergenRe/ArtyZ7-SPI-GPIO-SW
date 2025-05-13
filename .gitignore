@@ -1,0 +1,33 @@
+# Ignore build output directory
+/build
+/export
+
+# Ignore object files and dependent files
+*.o
+*.d
+*.out
+*.a
+*.obj
+*.bin
+*.elf
+*.elf.size
+.ninja_deps
+
+#Ignore logs folder and log files
+/logs
+.log
+*.log
+.ninja_log
+
+#Ignore lock files
+.lock
+
+.bin
+.pdi
+.vitisWorkspace.json
+
+_ide/logs
+_ide/.wsdata
+
+# do not store cache files
+.cache/
