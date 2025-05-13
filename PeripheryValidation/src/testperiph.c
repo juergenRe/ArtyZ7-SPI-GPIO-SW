@@ -1,8 +1,13 @@
+#include <sleep.h>
 #include <stdio.h>
 #include <xinterrupt_wrap.h>
 #include <xstatus.h>
 
+#include "lcd/oled_ssd1306.h"
+#include "nano_gfx_types.h"
 #include "platform.h"
+#include "ssd1306_1bit.h"
+#include "ssd1306_generic.h"
 #include "xparameters.h"
 #include "xil_printf.h"
 
@@ -11,7 +16,7 @@
 #include "SPIControl.h"
 #include "IICControl.h"
 
-
+#include "ssd1306.h"
 
 #define XSCUGIC_DIST_BASEADDR XPAR_XSCUGIC_0_BASEADDR
 #define XSPI_BASEADDR       XPAR_SPI0_BASEADDR
@@ -91,8 +96,9 @@ u8 IICReadBuffer[IIC_BUF_SIZE+1];
 u8 *pChar;
 u8 msgDef[] = {0, 30, 47, 55, 72, 0xff};
 u8 *actMsg = msgDef;
+static u8 procState = 0;
 
-void processInput(u8 sw);
+void processInput(u8 sw, u8 *procState, SAppMenu *appMenu);
 
 int main ()
 {
@@ -139,6 +145,32 @@ int main ()
         return 1;
     }
 
+    printf("--- Set-up LCD\n\r");
+    ssd1306_128x64_i2c_init();
+    ssd1306_clearScreen();
+    //ssd1306_setFixedFont(ssd1306xled_font8x16);
+    ssd1306_setFixedFont(ssd1306xled_font6x8);
+
+    // wait till LCD is ready, it takes a bit
+    while(ssd1306_isActive())
+        usleep(100);
+
+    ssd1306_printFixed(0, 0, "!\"#$%&'()*+,-./0123456789:;<=>?\0", STYLE_NORMAL);
+    //ssd1306_printFixedN(4, 0, "-Arty-Z20-\0", STYLE_BOLD, 1);    
+    //ssd1306_print("-Arty-Z20-\0");
+
+    // set up menu
+    SAppMenu appMenu;
+    const char entry1[] = "Invert";
+    const char entry2[] = "Flip";
+
+    const char* items[] = {entry1, entry2};    
+    int count = 2;
+
+    ssd1306_clearScreen();
+    ssd1306_createMenu(&appMenu, items, count);
+    ssd1306_showMenu(&appMenu);    
+
     print("--- Entering main loop ---\n\r");
     int running = 1;
     u32 runCnt = 0;
@@ -150,25 +182,25 @@ int main ()
         runCnt++;
     	if (intGPIOCount != lastGPIOCount){
     		lastGPIOCount = intGPIOCount;
-    		printf("<%u> ---Catches interrupt. Count: %u switch: %u\n\r", runCnt, lastGPIOCount, sw.actIn);
+    		printf("<%u> ---Catches interrupt. Count: %u switch: %u\n\r", (unsigned int) runCnt, (unsigned int)lastGPIOCount, (unsigned int)sw.actIn);
             if (sw.lastIn != sw.actIn){
                 sw.lastIn = sw.actIn;
-                processInput(sw.actIn);
+                processInput(sw.actIn, &procState, &appMenu);
                 GpioLEDOutput(sw.actIn);
-                printf("<%u> GPIO Int Count: %d\n\r", runCnt, intGPIOCount);
+                printf("<%u> GPIO Int Count: %d\n\r", (unsigned int)runCnt, (unsigned int)intGPIOCount);
                 CkClrBit(0);
             }
         }
-    	if (intGPIOCount > 20) break;  
+    	if (intGPIOCount > 40) break;  
 
     	// handle SPI transfer
     	if(intSPICount != lastSPICount){
     		if (spis.Status == XST_SPI_TRANSFER_DONE) {
                 SpiSetSlaveSelect(SPI_DESELECT_ALL);
     			SPIReadBuffer[spis.ByteCount] = 0x0;
-    			printf("<%u>   SPI Input: %s ; rem. Bytes: %d; Cnt: %u\n\r", runCnt, SPIReadBuffer, spis.RemainingBytes, spis.Cnt);
+    			printf("<%u>   SPI Input: %s ; rem. Bytes: %d; Cnt: %u\n\r", (unsigned int)runCnt, SPIReadBuffer, spis.RemainingBytes, (unsigned int)spis.Cnt);
     		}
-    		printf("<%u> Clearing internal read buffer.\n\r", runCnt);
+    		printf("<%u> Clearing internal read buffer.\n\r", (unsigned int)runCnt);
     		for(int i = 0;i<spis.ByteCount;i++)
     			SPIReadBuffer[i] = 0x00;
     		spis.ByteCount = 0;
@@ -177,41 +209,62 @@ int main ()
     		spis.Active = 0;
     		lastSPICount = intSPICount;
     	}
-    	if((spis.Active == 0) && (intSPICount < 0)){
-    		printf("<%u> Start SPI Tx %u\n\r", runCnt, intSPICount);
+    	if((spis.Active == 0) && (intSPICount == 0)){
+    		printf("<%u> Start SPI Tx %u\n\r", (unsigned int)runCnt, (unsigned int)intSPICount);
     		SpiReadWrite(SPIWriteBuffer, SPIReadBuffer, 3);
     		spis.Active = 1;
     		spis.ByteCount = 3;
     	}
-
-        // handle IIC transfer 
-    	// if((IicIsActive() == 0) && (IicGetIntCount() < MAX_TX)) {
-        //         IicAckOperation();
-        //         CkToggleBit(0);
-        //         IicWriteMaster(pChar, IIC_BC, LCD_ADDR);                
-        //         pChar++;
-        // 		//printf("IIC Tx %u Val: %x\n\r", IicGetIntCount(), (u8)*pChar);
-        // }            
     }
 
     print("--- Exiting main ---");
     return 0;
 }
 
-// sw0: reset messages
-// sw1: next message
-void processInput(u8 sw) {
-    if (sw & (u8)1)
-        actMsg = msgDef;
-    if (sw & (u8)2) {
-        if((IicIsActive() == 0)) {
-            IicAckOperation();
-            if (actMsg[1] != 0xff) {
-                pChar = IICWriteBuffer + actMsg[0];
-                u32 cnt = actMsg[1] - actMsg[0];
-                actMsg++;
-                IicWriteMaster(pChar, cnt, LCD_ADDR);
-            }
+// sw0: toggle screen inverse/normal
+// sw1: flip horizontal
+#define BTN_UP ((u8)1)
+#define BTN_DOWN ((u8)2)
+#define BTN_X ((u8)4)
+#define BTN_SEL ((u8)8)
+
+#define INVERT 1
+#define FLIP 2
+
+void processInput(u8 sw, u8 *procState, SAppMenu *appMenu) {
+    if (sw & BTN_UP){
+        ssd1306_menuUp(appMenu);
+        ssd1306_updateMenu(appMenu);
+    } else if (sw & BTN_DOWN) {
+        ssd1306_menuDown(appMenu);
+        ssd1306_updateMenu(appMenu);
+    } else if (sw & BTN_SEL) {
+        int sel = ssd1306_menuSelection(appMenu);
+        switch (sel) {
+            case 0: 
+                if((*procState & INVERT) != 0) {
+                    ssd1306_normalMode();
+                    *procState = *procState & ~INVERT;
+                }
+                else {
+                    ssd1306_invertMode();
+                    *procState = *procState | INVERT;
+                }
+                break;
+            case 1:
+                if((*procState & FLIP) != 0) {
+                    ssd1306_flipHorizontal(0);
+                    ssd1306_flipVertical(0);
+                    *procState = *procState & ~FLIP;
+                }
+                else {
+                    ssd1306_flipHorizontal(1);
+                    ssd1306_flipVertical(1);
+                    *procState = *procState | FLIP;
+                }
+                break;
+            default:
+                break;
         }
     }
 }

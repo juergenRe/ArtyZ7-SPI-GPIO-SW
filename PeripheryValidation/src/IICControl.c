@@ -87,7 +87,7 @@ u32 IicGetActStatus(void){
 }
 
 u32 IicWriteMaster(u8 *pTx, u32 ByteCount, u16 SlaveAddress){
-	if(iics.Active || (iics.ActCnt != iics.LastCnt)){
+	if(iics.Active){
 		printf("Not ready to write to IIC\n\r");
 		return XST_DEVICE_BUSY;
 	}
@@ -101,16 +101,15 @@ u32 IicWriteMaster(u8 *pTx, u32 ByteCount, u16 SlaveAddress){
 // Status callback on the IIC (interrupt routine)
 void IICStatusHandler(XIicPs *IICInstance, u32 StatusEvent)
 {   
-    CkSetBit(1);
 	iics.Status = StatusEvent;
-	iics.ActCnt++;
-	iics.Active -= 1;
-	if(iics.Active > 0){
-		printf("Deactivation Error. Cnt: %d\n", iics.Active);
-	}
-    u32 sr = XIicPs_ReadReg(IicCtrl.Config.BaseAddress, (u32)XIICPS_SR_OFFSET);
-    //printf("IIC Interrupt. SR: %u Status: %x IntCnt: %u Active: %u\n", sr, StatusEvent, iics.ActCnt, iics.Active);
-    CkClrBit(1);
+    if(iics.Status == XIICPS_EVENT_COMPLETE_SEND){
+        iics.ActCnt++;
+        iics.Active -= 1;
+        if(iics.Active > 0){
+            printf("Deactivation Error. Cnt: %d\n", iics.Active);
+        }
+        printf("IIC Completed\n\r");
+    }
 }
 
 

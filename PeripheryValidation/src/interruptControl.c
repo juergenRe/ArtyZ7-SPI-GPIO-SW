@@ -57,7 +57,7 @@ int SetUpGPIOInterrupt(XGpio* GPIOInstance, void Handler(XGpio *), u8 priority){
     XGpio_Config *Gpio_Config = XGpio_LookupConfig(GPIOInstance->BaseAddress);
     int Status = XSetupInterruptSystem(
                         GPIOInstance, 
-                        Handler, 
+                        (void *)Handler, 
                         Gpio_Config->IntrId, 
                         Gpio_Config->IntrParent, 
                         priority);
@@ -86,7 +86,7 @@ int SetUpSPIInterrupt(XSpiPs *SPIInstance, void Handler(XSpiPs *, u32, u32), u8 
     XSpiPs_Config *SpiPs_Config = XSpiPs_LookupConfig(SPIInstance->Config.BaseAddress);
     int Status = XSetupInterruptSystem(
                         SPIInstance, 
-                        &XSpiPs_InterruptHandler, 
+                        (void *) XSpiPs_InterruptHandler, 
                         SpiPs_Config->IntrId, 
                         SpiPs_Config->IntrParent, 
                         priority);
@@ -114,7 +114,7 @@ int SetUpIICInterrupt(XIicPs *IICInstance, void Handler(XIicPs *, u32), u8 prior
 
     int Status = XSetupInterruptSystem(
                         IICInstance, 
-                        XIicPs_MasterInterruptHandler, 
+                        (void *) XIicPs_MasterInterruptHandler, 
                         IicPs_Config->IntrId, 
                         IicPs_Config->IntrParent, 
                         priority);
