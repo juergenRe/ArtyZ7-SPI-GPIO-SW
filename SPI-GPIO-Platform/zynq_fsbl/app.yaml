@@ -1,0 +1,4 @@
+domain_path: C:\Users\Juergen\Documents\Projects\FPGA\Arty-Z7-A\ArtyZ7-SPI-GPIO-SW\SPI-GPIO-Platform\zynq_fsbl\zynq_fsbl_bsp
+app_src_dir: C:\Xilinx\Vitis\2024.2\data\embeddedsw\lib\sw_apps\zynq_fsbl
+template: zynq_fsbl
+lang: c
