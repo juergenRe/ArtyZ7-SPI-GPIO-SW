@@ -1,9 +1,0 @@
-# Blacklist everything
-.metadata
-.analytics
-RemoteSystemsTempFiles/
-.Xil/
-
-*.log
-*.bak
-

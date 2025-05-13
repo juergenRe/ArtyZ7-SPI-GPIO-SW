@@ -1,5 +1,0 @@
-init
-init
-ld
-&prio
-&trig
